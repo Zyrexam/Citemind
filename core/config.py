@@ -11,5 +11,7 @@ class Settings(BaseSettings):
     llm_model: str = "openai/gpt-oss-120b"
     llm_base_url: str = "https://api.groq.com/openai/v1"
 
+    tavily_api_key: str = ""
+
 
 settings = Settings()

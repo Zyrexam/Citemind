@@ -2,47 +2,48 @@ import asyncio
 import json
 import logging
 
-from fastapi import APIRouter
-from openai import OpenAI
+from fastapi import APIRouter, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
+from agents.planner.agent import plan
+from agents.retriever.agent import retrieve
+from agents.writer.agent import write
 from apps.api.schemas import AgentRequest, AgentResponse, Citation
-from core.config import settings
+from guardrails.input import validate_input
+from guardrails.output import validate_output
+from guardrails.pii import scrub_pii
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-client = OpenAI(
-    base_url=settings.llm_base_url,
-    api_key=settings.groq_api_key,
-)
-
 
 @router.post("/agent/run", response_model=AgentResponse)
 async def run_agent(req: AgentRequest) -> AgentResponse:
-    logger.info("agent run via Groq: %s", req.query[:80])
+    ok, err = validate_input(req.query)
+    if not ok:
+        raise HTTPException(status_code=400, detail=err)
 
-    # ponytail: sync LLM call blocks the event loop until a real multi-agent
-    # flow exists; swap to AsyncOpenAI / run_in_threadpool when concurrency matters.
-    try:
-        completion = client.chat.completions.create(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": "You are a helpful research assistant."},
-                {"role": "user", "content": req.query},
-            ],
-            temperature=0.7,
-            max_tokens=1024,
-        )
-        report = completion.choices[0].message.content
-    except Exception as e:
-        logger.error("LLM call failed: %s", e)
-        report = f"(error) Could not generate report: {e}"
+    clean_query = scrub_pii(req.query)
+
+    sub_queries = plan(clean_query)
+    logger.info("planner produced %d queries", len(sub_queries))
+
+    sources = retrieve(sub_queries, max_results=3)
+    logger.info("retriever returned %d sources", len(sources))
+
+    report = write(clean_query, sources)
+
+    ok, err = validate_output(report)
+    if not ok:
+        logger.warning("output validation failed: %s", err)
+        report = "(Report generation failed validation.)"
+
+    citations = [Citation(title=s["title"], url=s["url"]) for s in sources]
 
     return AgentResponse(
-        query=req.query,
+        query=clean_query,
         report=report,
-        citations=[Citation(title="Groq Inference", url="https://groq.com")],
+        citations=citations,
     )
 
 
