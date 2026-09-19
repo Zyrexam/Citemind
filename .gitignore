@@ -1,0 +1,28 @@
+@'
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+
+# Docker / data
+*.log
+data/
+qdrant_storage/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+'@ | Out-File -Encoding utf8 .gitignore
