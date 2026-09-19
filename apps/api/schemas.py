@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 
 class AgentRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=2000)
-    stream: bool = False
 
 
 class Citation(BaseModel):

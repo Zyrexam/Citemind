@@ -16,9 +16,9 @@ jobs:
           python-version: "3.11"
       - name: Install uv
         run: pip install uv
-      - name: Install deps
-        run: uv pip install --system -e ".[dev]" || echo "no deps yet"
+- name: Install deps
+        run: uv pip install --system -e ".[dev]"
       - name: Lint
-        run: ruff check . || echo "ruff not configured yet"
+        run: ruff check .
       - name: Test
-        run: pytest -q || echo "no tests yet"
+        run: pytest -q
