@@ -4,30 +4,341 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --primary: 222 89% 56%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 89% 56%;
-    --radius: 0.75rem;
+    --background: 48 20% 92%;
+    --foreground: 48 12% 8%;
+
+    --leaf: 48 33% 95%;
+    --card: 48 33% 95%;
+    --card-foreground: 48 12% 8%;
+
+    --ink: 48 12% 8%;
+    --ink-soft: 45 10% 31%;
+    --ink-faint: 48 10% 39%;
+
+    --rule: 45 17% 79%;
+    --rule-strong: 44 14% 65%;
+
+    --primary: 224 65% 28%;
+    --primary-foreground: 48 33% 95%;
+    --ring: 224 65% 28%;
+
+    --secondary: 48 22% 88%;
+    --secondary-foreground: 48 12% 8%;
+    --muted: 48 22% 88%;
+    --muted-foreground: 45 10% 31%;
+
+    --border: 45 17% 79%;
+    --input: 45 17% 74%;
+
+    --rubric: 10 60% 32%;
+
+    --radius: 12px;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-text antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
+    background-image: radial-gradient(
+      ellipse 120% 55% at 50% 0%,
+      hsl(42 40% 97% / 0.75),
+      transparent 70%
+    );
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+
+  :root {
+    caret-color: hsl(var(--ink));
+    accent-color: hsl(var(--primary));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  * {
+    scrollbar-color: hsl(var(--rule-strong)) hsl(var(--leaf));
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--leaf));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--rule-strong));
+    border: 3px solid hsl(var(--leaf));
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--ink-faint));
   }
 }
 
-@layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; }
+@layer components {
+  .slip {
+    background-color: hsl(var(--leaf));
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(1.75rem - 1px),
+      hsl(var(--rule) / 0.85) calc(1.75rem - 1px),
+      hsl(var(--rule) / 0.85) 1.75rem
+    );
+    background-position: 0 0.25rem;
+  }
+
+  .slip textarea {
+    background: transparent;
+  }
+
+  .slip:focus-within {
+    border-color: hsl(var(--primary));
+  }
+
+  .ledger-label {
+    @apply font-ui text-[11px] uppercase tracking-[0.14em] text-ink-faint;
+  }
+
+  .legend-row {
+    @apply grid grid-cols-[1.75rem_1fr] gap-x-3 border-b border-rule/70 py-3 text-left;
+  }
+
+  .legend-row:hover,
+  .legend-row[data-active="true"] {
+    @apply bg-leaf;
+    box-shadow: inset 2px 0 0 hsl(var(--primary));
+  }
+
+  /*
+   * the key: a superscript figure raised into the text, the whole mechanism.
+   * active, it draws a leader line right into the margin gutter.
+   */
+  .report .key {
+    @apply relative inline-block align-super cursor-pointer font-ui font-medium not-italic;
+    font-size: 0.6875em;
+    line-height: 1;
+    color: hsl(var(--primary));
+    padding: 0.3em 0.32em;
+    margin: -0.3em 0.08em;
+    border-radius: 2px;
+    transition: color 75ms linear, background-color 75ms linear;
+  }
+
+  .report .key::before {
+    content: "";
+    position: absolute;
+    inset: -0.4em -0.3em;
+  }
+
+  .report .key:hover {
+    color: hsl(var(--ink));
+  }
+
+  .report .key[data-active="true"] {
+    background: hsl(var(--primary) / 0.14);
+  }
+
+  .report .key[data-active="true"]::after {
+    content: "";
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    width: 2rem;
+    border-top: 1px solid hsl(var(--primary));
+    pointer-events: none;
+  }
 }
 
-.prose :where(h2) { @apply text-xl font-semibold tracking-tight mt-6 mb-3; }
-.prose :where(h3) { @apply text-base font-semibold mt-4 mb-2; }
-.prose :where(p) { @apply leading-7 mb-3 text-[15px]; }
-.prose :where(ul) { @apply list-disc pl-5 mb-3; }
-.prose :where(li) { @apply mb-1; }
+@layer utilities {
+  .step-in {
+    animation: step-in 90ms steps(2, end) both;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.report {
+  @apply font-text text-ink;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+.report > * + * {
+  margin-top: 1.15em;
+}
+
+.report :where(h2) {
+  @apply font-text text-ink;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  margin-top: 2.4em;
+  letter-spacing: -0.012em;
+}
+
+.report > :where(h2:first-child),
+.report > :where(h2:first-child) + * {
+  margin-top: 0;
+}
+
+.report > :where(h2:first-child) {
+  margin-top: 1.9em;
+}
+
+.report :where(h3) {
+  @apply font-text text-ink;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin-top: 1.6em;
+}
+
+.report :where(h2)::before,
+.report :where(h3)::before {
+  content: "";
+  display: block;
+  width: 2.25rem;
+  border-top: 2px solid hsl(var(--ink) / 0.55);
+  margin-bottom: 0.85em;
+}
+
+.report :where(p) {
+  hanging-punctuation: first last;
+}
+
+.report :where(ul),
+.report :where(ol) {
+  padding-left: 1.3em;
+}
+
+.report :where(ul) {
+  list-style: none;
+}
+
+.report :where(ul > li)::before {
+  content: "—";
+  color: hsl(var(--ink-faint));
+  margin-left: -1.05em;
+  margin-right: 0.55em;
+  display: inline-block;
+}
+
+.report :where(ol) {
+  list-style: decimal;
+}
+
+.report :where(ol > li)::marker {
+  color: hsl(var(--ink-faint));
+  font-family: var(--font-ui), system-ui, sans-serif;
+  font-size: 0.85em;
+}
+
+.report :where(li + li) {
+  margin-top: 0.35em;
+}
+
+.report :where(strong) {
+  font-weight: 600;
+}
+
+.report :where(a) {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.report :where(blockquote) {
+  border-left: 1px solid hsl(var(--rule-strong));
+  padding-left: 1.1em;
+  color: hsl(var(--ink-soft));
+  font-style: italic;
+}
+
+.report :where(code) {
+  @apply font-ui text-[0.875em];
+  background: hsl(var(--secondary));
+  padding: 0.1em 0.32em;
+  border-radius: 3px;
+}
+
+.report :where(pre) {
+  @apply font-ui text-[0.8125rem] leading-relaxed;
+  background: hsl(var(--leaf));
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius);
+  padding: 0.95rem 1.1rem;
+  overflow-x: auto;
+}
+
+.report :where(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.report :where(hr) {
+  border: 0;
+  border-top: 1px solid hsl(var(--rule));
+  margin: 2.4em 0;
+}
+
+.report :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.report :where(thead) {
+  background: hsl(var(--secondary) / 0.55);
+}
+
+.report :where(th) {
+  @apply font-ui text-[11px] uppercase tracking-[0.1em] text-ink-soft;
+  text-align: left;
+  font-weight: 500;
+  border-bottom: 1px solid hsl(var(--rule-strong));
+  padding: 0.6rem 1rem 0.6rem 0.75rem;
+}
+
+.report :where(td) {
+  border-bottom: 1px solid hsl(var(--rule) / 0.8);
+  padding: 0.7rem 1rem 0.7rem 0.75rem;
+  vertical-align: top;
+}
+
+.report :where(td:first-child) {
+  @apply font-medium text-ink;
+}
+
+.report :where(tr:last-child td) {
+  border-bottom: 0;
+}

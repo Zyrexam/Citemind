@@ -15,7 +15,16 @@ const config: Config = {
         secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
         muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
         card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
+        leaf: "hsl(var(--leaf))",
+        ink: { DEFAULT: "hsl(var(--ink))", soft: "hsl(var(--ink-soft))", faint: "hsl(var(--ink-faint))" },
+        rule: { DEFAULT: "hsl(var(--rule))", strong: "hsl(var(--rule-strong))" },
+        rubric: "hsl(var(--rubric))",
       },
+      fontFamily: {
+        text: ["var(--font-text)", "Georgia", "serif"],
+        ui: ["var(--font-ui)", "system-ui", "sans-serif"],
+      },
+      maxWidth: { measure: "70ch" },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

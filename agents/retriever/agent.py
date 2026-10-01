@@ -34,7 +34,7 @@ def _get_client():
     return _client
 
 
-def retrieve(queries: list[str], max_results: int = 3) -> list[Source]:
+def retrieve(queries: list[str], max_results: int = 6) -> list[Source]:
     client = _get_client()
     if client is None:
         return []
@@ -42,7 +42,12 @@ def retrieve(queries: list[str], max_results: int = 3) -> list[Source]:
     seen: set[str] = set()
     for q in queries:
         try:
-            resp = client.search(query=q, max_results=max_results, search_depth="basic")
+            resp = client.search(
+                query=q,
+                max_results=max_results,
+                search_depth="advanced",
+                include_answer=False,
+            )
         except Exception as e:
             logger.warning("tavily search failed for '%s': %s", q[:60], e)
             continue

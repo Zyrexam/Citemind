@@ -1,5 +1,5 @@
 [project]
-name = "researchmind"
+name = "citemind"
 version = "0.1.0"
 description = "Multi-agent AI research assistant"
 readme = "Readme.md"

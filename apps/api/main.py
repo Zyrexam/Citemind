@@ -1,13 +1,19 @@
+import logging
+import sys
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.routes import router
 from core.config import settings
-from core.logging import setup_logging
 
-setup_logging()
+logging.basicConfig(
+    level=settings.log_level.upper(),
+    format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+    stream=sys.stdout,
+)
 
-app = FastAPI(title="ResearchMind API", version="0.1.0")
+app = FastAPI(title="CiteMind API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

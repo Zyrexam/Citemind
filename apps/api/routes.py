@@ -3,18 +3,34 @@ import json
 import logging
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from agents.planner.agent import plan
 from agents.retriever.agent import retrieve
 from agents.writer.agent import write
-from apps.api.schemas import AgentRequest, AgentResponse, Citation
-from guardrails.input import validate_input
-from guardrails.output import validate_output
-from guardrails.pii import scrub_pii
+from guardrails import scrub_pii, validate_input, validate_output
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class AgentRequest(BaseModel):
+    query: str = Field(..., min_length=3, max_length=2000)
+
+
+class Citation(BaseModel):
+    title: str
+    url: str | None = None
+    # the passage the claim rests on, so the reader can check it
+    snippet: str | None = None
+
+
+class AgentResponse(BaseModel):
+    query: str
+    report: str
+    citations: list[Citation] = []
+    status: str = "ok"
 
 
 @router.post("/agent/run", response_model=AgentResponse)
@@ -38,7 +54,14 @@ async def run_agent(req: AgentRequest) -> AgentResponse:
         logger.warning("output validation failed: %s", err)
         report = "(Report generation failed validation.)"
 
-    citations = [Citation(title=s["title"], url=s["url"]) for s in sources]
+    citations = [
+        Citation(
+            title=s["title"],
+            url=s["url"],
+            snippet=(s.get("content") or "")[:600] or None,
+        )
+        for s in sources
+    ]
 
     return AgentResponse(
         query=clean_query,

@@ -2,25 +2,84 @@
 
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
-import { Search, Sparkles, Loader2, ExternalLink, Copy, Check, Shield, FileText, Globe } from "lucide-react";
+import remarkGfm from "remark-gfm";
+import { Loader2, ExternalLink, Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 
-type Citation = { title: string; url: string | null };
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8123";
+
+type Citation = { title: string; url: string | null; snippet?: string | null };
 type Status = "idle" | "loading" | "success" | "error";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const MAX = 2000;
 
 const EXAMPLES = [
-  "What is retrieval-augmented generation and when should I use it over fine-tuning?",
-  "Compare RAG evaluation methods for enterprise use",
-  "Latest developments in AI agents 2026",
-  "How does hybrid search (BM25 + dense) improve retrieval quality?",
+  "When does retrieval beat fine-tuning?",
+  "How should a RAG system be evaluated?",
+  "What does hybrid search actually buy you?",
+  "Where does agentic retrieval break down?",
 ];
 
-function getDomain(url: string | null) {
+/*
+ * The writer is asked for "[n]" but the model tends to answer 【n†L1-L4】 --
+ * a source figure plus a line pinpoint. Both forms are real citations, so both
+ * become keys; the pinpoint is lifted out of the text into the margin card,
+ * where it belongs.
+ */
+const CITE = /[【[]\s*(\d{1,2})\s*(?:†[^】\]]*)?[】\]]/g;
+const PIN = /[【[]\s*(\d{1,2})\s*†\s*([^】\]]+?)\s*[】\]]/g;
+
+function tidyCitations(md: string) {
+  return md.replace(CITE, (_m, n) => `[${n}]`);
+}
+
+function useCitationKeys(active: number | null, setActive: (n: number | null) => void) {
+  return React.useCallback(
+    function transform(node: React.ReactNode): React.ReactNode {
+      if (typeof node === "string") {
+        const parts: React.ReactNode[] = [];
+        let last = 0;
+        for (const m of node.matchAll(CITE)) {
+          const i = m.index ?? 0;
+          if (i > last) parts.push(node.slice(last, i));
+          const n = Number(m[1]);
+          parts.push(
+            <button
+              key={`${n}-${i}`}
+              type="button"
+              onClick={() => setActive(active === n ? null : n)}
+              onMouseEnter={() => setActive(n)}
+              aria-label={`Source ${n}`}
+              className="key"
+              data-active={active === n ? "true" : undefined}
+            >
+              {n}
+            </button>
+          );
+          last = i + m[0].length;
+        }
+        if (last < node.length) parts.push(node.slice(last));
+        return parts.length ? parts : node;
+      }
+      if (Array.isArray(node)) {
+        return node.map((c, i) => <React.Fragment key={i}>{transform(c)}</React.Fragment>);
+      }
+      if (React.isValidElement(node)) {
+        const el = node as React.ReactElement<{ children?: React.ReactNode }>;
+        const kids = el.props?.children;
+        if (kids && kids !== node) {
+          return React.cloneElement(el, { children: transform(kids) } as never);
+        }
+      }
+      return node;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [active]
+  );
+}
+
+function domainOf(url: string | null) {
   if (!url) return "";
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -35,18 +94,40 @@ export default function Page() {
   const [report, setReport] = React.useState("");
   const [citations, setCitations] = React.useState<Citation[]>([]);
   const [error, setError] = React.useState<string | null>(null);
+  const [active, setActive] = React.useState<number | null>(null);
+  const [elapsed, setElapsed] = React.useState(0);
   const [copied, setCopied] = React.useState(false);
+
+  const withKeys = useCitationKeys(active, setActive);
+  const reportRef = React.useRef<HTMLDivElement>(null);
+
+  const pinpoints = React.useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const m of report.matchAll(PIN)) {
+      map[Number(m[1])] = m[2].replace(/-/g, "–");
+    }
+    return map;
+  }, [report]);
+
+  React.useEffect(() => {
+    if (status !== "loading") return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [status]);
 
   async function runResearch(q: string) {
     const trimmed = q.trim();
     if (trimmed.length < 3) {
-      setError("Query too short. Add a bit more detail.");
+      setError("Add a little more to the question before asking.");
+      setStatus("error");
       return;
     }
     setStatus("loading");
     setError(null);
     setReport("");
     setCitations([]);
+    setActive(null);
     try {
       const res = await fetch(`${API_URL}/agent/run`, {
         method: "POST",
@@ -55,192 +136,294 @@ export default function Page() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Request failed (${res.status})`);
+        throw new Error(body.detail || `The request failed (${res.status}).`);
       }
       const data = await res.json();
       setReport(data.report || "");
       setCitations(data.citations || []);
       setStatus("success");
+      requestAnimationFrame(() =>
+        reportRef.current?.scrollIntoView({ behavior: "instant", block: "start" })
+      );
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(e instanceof Error ? e.message : "Something went wrong.");
       setStatus("error");
     }
   }
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    runResearch(query);
-  }
-
   async function copyReport() {
-    await navigator.clipboard.writeText(report);
+    await navigator.clipboard.writeText(tidyCitations(report));
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Ask a research question. Get a cited report.</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Planner breaks your question into sub-queries, retriever pulls web sources via Tavily, writer synthesizes a markdown report with citations. Guardrails validate input, scrub PII, and check output shape.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Badge className="gap-1.5">
-            <Shield className="h-3 w-3" /> guardrails on
-          </Badge>
-          <Badge variant="outline" className="gap-1.5">
-            <Globe className="h-3 w-3" /> Groq {process.env.NEXT_PUBLIC_LLM_MODEL || "openai/gpt-oss-120b"}
-          </Badge>
-          <Badge variant="outline" className="gap-1.5">
-            <FileText className="h-3 w-3" /> citations included
-          </Badge>
-        </div>
-      </div>
+  function downloadReport() {
+    const sources = citations
+      .map((c, i) => `${i + 1}. [${c.title || "Untitled source"}](${c.url ?? ""})`)
+      .join("\n");
+    const md = `# ${query.trim()}\n\n${tidyCitations(report)}\n\n## Sources\n\n${sources}\n`;
+    const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${query.trim().slice(0, 60).replace(/[^\w\s-]/g, "") || "research"}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Search className="h-4 w-4 text-muted-foreground" /> Research query
-          </CardTitle>
-          <CardDescription>Ask as you would a colleague. Be specific for better sources.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-3">
-            <Textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. What are the tradeoffs between RAG and fine-tuning for enterprise QA?"
-              rows={3}
-              aria-label="Research query"
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="submit" disabled={status === "loading"} className="gap-2">
-                {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {status === "loading" ? "Researching..." : "Research"}
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setQuery("")} disabled={status === "loading"}>
-                Clear
-              </Button>
-              <span className="ml-auto text-xs text-muted-foreground">{query.length} / 2000</span>
-            </div>
-          </form>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {EXAMPLES.map((ex) => (
+  const activeCitation = active != null ? citations[active - 1] : undefined;
+
+  const keyed = (Tag: "p" | "li" | "td" | "th") =>
+    function Renderer({ children }: { children?: React.ReactNode }) {
+      return React.createElement(Tag, null, withKeys(children));
+    };
+
+  const markdown = {
+    p: keyed("p"),
+    li: keyed("li"),
+    td: keyed("td"),
+    th: keyed("th"),
+    table: ({ children }: { children?: React.ReactNode }) => (
+      <div className="-mx-1 overflow-x-auto px-1">
+        <table>{children}</table>
+      </div>
+    ),
+  };
+
+  return (
+    <div className="max-w-5xl">
+      <form onSubmit={(e) => { e.preventDefault(); runResearch(query); }}>
+        <label
+          htmlFor="research"
+          className="ledger-label block border-b border-rule-strong pb-1.5"
+        >
+          Your question
+        </label>
+        <div className="slip mt-2 rounded-[3px] border border-rule px-4 py-3">
+          <Textarea
+            id="research"
+            value={query}
+            onChange={(e) => setQuery(e.target.value.slice(0, MAX))}
+            rows={3}
+            placeholder="What are the tradeoffs between retrieval and fine-tuning for enterprise question answering?"
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-2">
+          <Button type="submit" disabled={status === "loading"}>
+            {status === "loading" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            {status === "loading" ? "Working" : "Research"}
+          </Button>
+          {status !== "loading" && (
+            <Button type="button" variant="quiet" size="quiet" onClick={() => { setQuery(""); setStatus("idle"); setReport(""); setCitations([]); setError(null); setActive(null); }}>
+              Clear
+            </Button>
+          )}
+          <span className="tnum ml-auto font-ui text-[12px] text-ink-faint">
+            {query.length} / {MAX}
+          </span>
+        </div>
+      </form>
+
+      <div className="mt-8">
+        <p className="ledger-label border-b border-rule pb-1.5">Or start from a question</p>
+        <ul className="mt-1">
+          {EXAMPLES.map((ex, i) => (
+            <li key={ex}>
               <button
-                key={ex}
                 type="button"
                 onClick={() => setQuery(ex)}
-                className="rounded-full border bg-secondary px-3 py-1 text-xs hover:bg-secondary/80 text-left"
+                className="flex w-full items-baseline gap-3 border-b border-rule/70 py-2.5 text-left transition-colors duration-75 hover:bg-leaf"
               >
-                {ex}
+                <span className="tnum font-ui text-[12px] text-ink-faint">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="font-text text-[0.9375rem] text-ink-soft transition-colors duration-75 hover:text-ink">
+                  {ex}
+                </span>
               </button>
-            ))}
-          </div>
-          {error && (
-            <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      {status === "loading" && (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-3">
-              <div className="h-5 w-3/4 animate-pulse rounded bg-muted" />
-              <div className="h-4 w-full animate-pulse rounded bg-muted" />
-              <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
-              <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
-            </div>
-            <p className="mt-4 text-xs text-muted-foreground">Planner and retriever are working. Writer is composing.</p>
-          </CardContent>
-        </Card>
+      {citations.length > 0 && (
+        <section className="mt-12" aria-label="Sources">
+          <h2 className="ledger-label border-b border-rule-strong pb-1.5">Sources</h2>
+          <ol className="mt-1">
+            {citations.map((c, i) => {
+              const n = i + 1;
+              return (
+                <li key={`${c.url}-${n}`}>
+                  <button
+                    type="button"
+                    onClick={() => setActive(active === n ? null : n)}
+                    onMouseEnter={() => setActive(n)}
+                    className="legend-row w-full transition-colors duration-75"
+                    data-active={active === n ? "true" : undefined}
+                  >
+                    <span className="tnum pt-[0.15em] font-ui text-[12px] text-ink-faint">
+                      {n}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-text text-[0.9375rem] leading-snug text-ink">
+                        {c.title || domainOf(c.url)}
+                      </span>
+                      <span className="mt-0.5 block truncate font-ui text-[12px] text-ink-faint">
+                        {domainOf(c.url)}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
       )}
 
-      {status === "success" && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm">Report</CardTitle>
-              <Button variant="ghost" size="icon" onClick={copyReport} aria-label="Copy report" title="Copy">
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+      <section className="mt-14" aria-label="Report" ref={reportRef}>
+        <div className="flex items-start justify-between gap-8 border-b border-rule-strong pb-4">
+          <div className="min-w-0">
+            <p className="ledger-label">The report</p>
+            <h2 className="mt-2.5 max-w-measure font-text text-[1.75rem] font-semibold leading-[1.22] tracking-[-0.018em] text-ink">
+              {status === "success" ? query.trim() : "Your report will appear here"}
+            </h2>
+          </div>
+          {status === "success" && report && (
+            <span className="flex shrink-0 items-baseline gap-4 pt-1">
+              <Button type="button" variant="quiet" size="quiet" onClick={downloadReport}>
+                <Download className="h-3.5 w-3.5" />
+                Download
               </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="prose max-w-none">
-                <ReactMarkdown>{report}</ReactMarkdown>
-              </div>
-            </CardContent>
-          </Card>
+              <Button type="button" variant="quiet" size="quiet" onClick={copyReport}>
+                {copied ? <Check className="h-3.5 w-3.5" /> : null}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            </span>
+          )}
+        </div>
 
-          <Card className="h-fit">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" /> Sources
-              </CardTitle>
-              <CardDescription>{citations.length} sources · deduplicated</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {citations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No sources returned for this query.</p>
-              ) : (
-                citations.map((c, i) => (
-                  <a
-                    key={`${c.url}-${i}`}
-                    href={c.url || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block rounded-lg border p-3 hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-5 line-clamp-2">{c.title || getDomain(c.url)}</p>
-                      <span className="shrink-0 text-xs text-muted-foreground">[{i + 1}]</span>
+        {status === "idle" && <Specimen withKeys={withKeys} />}
+
+        {status === "loading" && (
+          <div className="pt-6">
+            <p className="font-ui text-[13px] text-ink-soft" role="status">
+              Planning, retrieving, writing.
+              <span className="tnum text-ink-faint" aria-hidden="true">
+                {" "}
+                {elapsed}s
+              </span>
+            </p>
+            <div className="mt-5 space-y-3" aria-hidden="true">
+              {[92, 78, 96, 61, 88, 70].map((w, i) => (
+                <div
+                  key={i}
+                  className="step-in h-3 rounded-[2px] bg-rule/55"
+                  style={{ width: `${w}%`, animationDelay: `${i * 70}ms` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {status === "error" && error && (
+          <div className="step-in pt-6">
+            <p className="flex gap-2.5 font-text text-[1.0625rem] text-ink">
+              <span aria-hidden="true" className="font-ui text-rubric">
+                ✳
+              </span>
+              <span>{error}</span>
+            </p>
+            <p className="mt-2 pl-7 font-text text-[0.9375rem] text-ink-soft">
+              Edit the question above and ask again.
+            </p>
+          </div>
+        )}
+
+        {status === "success" && (
+          <div className="grid gap-x-8 pt-6 lg:grid-cols-[minmax(0,70ch)_16rem]">
+            <div className="report max-w-measure">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdown}>{report}</ReactMarkdown>
+            </div>
+            <aside className="mt-8 lg:mt-0">
+              <div className="lg:sticky lg:top-8">
+                {activeCitation ? (
+                  <div className="step-in">
+                    <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-2">
+                      <span className="ledger-label">Source</span>
+                      <span className="tnum font-text text-[2rem] font-semibold leading-none text-primary">
+                        {active}
+                      </span>
                     </div>
-                    {c.url && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground break-all">
-                        {getDomain(c.url)} <ExternalLink className="h-3 w-3 shrink-0" />
+                    <p className="mt-3 font-text text-[1rem] leading-snug text-ink">
+                      {activeCitation.title || domainOf(activeCitation.url)}
+                    </p>
+                    {activeCitation.url && (
+                      <a
+                        href={activeCitation.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2.5 inline-flex items-center gap-1.5 font-ui text-[12px] text-ink-soft underline decoration-rule-strong underline-offset-[0.2em] transition-colors duration-75 hover:text-primary hover:decoration-primary"
+                      >
+                        {domainOf(activeCitation.url)}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                    {active !== null && pinpoints[active] && (
+                      <p className="mt-4 border-t border-rule pt-2.5 font-ui text-[11px] text-ink-faint">
+                        Cited at {pinpoints[active]} of the source
                       </p>
                     )}
-                  </a>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                    {activeCitation.snippet && (
+                      <blockquote className="mt-4 border-t border-rule pt-3 font-text text-[0.875rem] italic leading-relaxed text-ink-soft">
+                        {activeCitation.snippet.trim()}
+                      </blockquote>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border-t border-rule pt-3">
+                    <p className="ledger-label">Apparatus</p>
+                    <p className="mt-2 font-text text-[0.9375rem] leading-relaxed text-ink-soft">
+                      Select a numbered figure in the report to see the source
+                      it came from.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
 
-      {status === "idle" && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">How it works</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground leading-6">
-              1. Planner turns your question into 3 to 5 search queries.<br />
-              2. Retriever fetches and dedupes web results.<br />
-              3. Writer builds a cited markdown report.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Guardrails</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground leading-6">
-              Input length and injection check return 400. PII is scrubbed before the LLM. Output length is validated before it reaches you.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Try it</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground leading-6">
-              Hit an example chip above, then Research. API lives at <code className="rounded bg-muted px-1 py-0.5">{API_URL}</code>.
-            </CardContent>
-          </Card>
+function Specimen({ withKeys }: { withKeys: (n: React.ReactNode) => React.ReactNode }) {
+  return (
+    <div className="pt-6">
+      <p className="ledger-label">A specimen, not a result</p>
+      <div className="mt-4 grid gap-x-8 lg:grid-cols-[minmax(0,70ch)_16rem]">
+        <div className="report max-w-measure">
+          <p>
+            Every claim carries the figure of the source it came from.{" "}
+            {withKeys("[1]")}Select a figure and its source opens beside the text.
+          </p>
+          <p>
+            A report that cannot be checked is an assertion. {withKeys("[2]")}The figure
+            is the audit trail, and the sources are the {withKeys("[3]")}evidence.
+          </p>
         </div>
-      )}
-    </main>
+        <div className="mt-6 lg:mt-0">
+          <p className="font-ui text-[12px] leading-relaxed text-ink-faint">
+            Here is where a selected source will open. Yours will name the real
+            article and link to it.
+          </p>
+        </div>
+      </div>
+      <p className="mt-5 font-ui text-[12px] text-ink-faint">
+        Ask a question to replace this with your own.
+      </p>
+    </div>
   );
 }

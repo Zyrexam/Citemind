@@ -11,7 +11,7 @@ client = OpenAI(
 
 PLANNER_PROMPT = """You are a research planning assistant.
 
-Your job: Break down the user's question into 3 to 5 focused search queries.
+Your job: Break down the user's question into 6 to 8 focused search queries.
 
 Rules:
 - Each query should be phrased like a search engine query.
@@ -45,7 +45,7 @@ def plan(query: str) -> list[str]:
     try:
         queries = json.loads(raw)
         if isinstance(queries, list) and all(isinstance(q, str) for q in queries):
-            return queries[:5]
+            return queries[:8]
     except json.JSONDecodeError:
         pass
 
