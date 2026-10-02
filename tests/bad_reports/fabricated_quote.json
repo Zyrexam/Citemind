@@ -1,0 +1,36 @@
+{
+  "query": "How should a RAG system be evaluated in production?",
+  "report": "## Summary\n\nA RAG system should be scored on context precision and context recall separately, because a single end-to-end number hides which half of the pipeline broke [1].\n\n## What the sources say\n\nEvaluation of retrieval-augmented generation pipelines remains fragmented across the literature [1]. Reciprocal rank fusion improves downstream accuracy by 27% in most configurations [1].\n\n## Sources considered\n\nWeighed and rejected a vendor benchmark that reported no baseline.",
+  "citations": [
+    {
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "url": "https://arxiv.org/abs/2005.11401",
+      "content": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks. Evaluation of retrieval-augmented generation pipelines remains fragmented, with published systems reporting metrics that are rarely comparable across papers. Context precision measures whether the retrieved passages that are ranked highly are actually relevant to the question being asked.",
+      "snippet": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks."
+    }
+  ],
+  "_meta": {
+    "sources": 1,
+    "note": "fixture: every citation resolves and every sentence is cited, but one quote was invented. Only the grounding checker can see this.",
+    "writer": {
+      "per_source": null,
+      "claims": [
+        {
+          "claim": "Context precision measures whether the top-ranked retrieved passages are relevant.",
+          "source": 1,
+          "quote": "Context precision measures whether the retrieved passages that are ranked highly are actually relevant to the question being asked."
+        },
+        {
+          "claim": "Evaluation of retrieval-augmented generation pipelines remains fragmented.",
+          "source": 1,
+          "quote": "evaluation of retrieval-augmented generation pipelines remains fragmented"
+        },
+        {
+          "claim": "Reciprocal rank fusion improves downstream accuracy by 27%.",
+          "source": 1,
+          "quote": "Reciprocal rank fusion improves downstream accuracy by 27 percent in most configurations."
+        }
+      ]
+    }
+  }
+}

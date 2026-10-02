@@ -9,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from agents.planner.agent import plan
 from agents.retriever.agent import retrieve
 from agents.writer.agent import write
+from core.config import settings
 from guardrails import scrub_pii, validate_input, validate_output
 
 logger = logging.getLogger(__name__)
@@ -41,13 +42,17 @@ async def run_agent(req: AgentRequest) -> AgentResponse:
 
     clean_query = scrub_pii(req.query)
 
-    sub_queries = plan(clean_query)
+    sub_queries = plan(clean_query)[: settings.sub_queries]
     logger.info("planner produced %d queries", len(sub_queries))
 
-    sources = retrieve(sub_queries, max_results=3)
+    sources = retrieve(sub_queries, max_results=settings.results_per_query)
     logger.info("retriever returned %d sources", len(sources))
 
-    report = write(clean_query, sources)
+    try:
+        report = write(clean_query, sources)
+    except RuntimeError as e:
+        logger.error("writer failed: %s", e)
+        raise HTTPException(status_code=503, detail=str(e)) from e
 
     ok, err = validate_output(report)
     if not ok:

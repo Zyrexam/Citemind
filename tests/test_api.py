@@ -5,6 +5,7 @@ from agents.retriever import agent as retriever
 from agents.writer import agent as writer
 from apps.api import routes
 from apps.api.main import app
+from evals.verify_grounding import quote_found
 
 client = TestClient(app)
 
@@ -59,23 +60,69 @@ def test_plan_fallback_when_not_json(monkeypatch):
 
 def test_retrieve_dedupes_urls(monkeypatch):
     class FakeClient:
-        def search(self, query, max_results=3, search_depth="basic"):
+        def search(self, query, **kwargs):
             return {
                 "results": [
                     {"title": "A", "url": "https://dup.com", "content": "x"},
                     {"title": "A2", "url": "https://dup.com", "content": "y"},
                     {"title": "B", "url": "https://ok.com", "content": "z"},
+                    {
+                        "title": "C",
+                        "url": "http://www.Arxiv.org/abs/2005.11401v5?utm_source=x#s",
+                        "content": "w",
+                    },
+                    {"title": "D", "url": "https://arxiv.org/abs/2005.11401v1", "content": "v"},
                 ]
             }
 
     monkeypatch.setattr(retriever, "_client", FakeClient())
     out = retriever.retrieve(["q"], max_results=3)
     urls = [r["url"] for r in out]
-    assert urls == ["https://dup.com", "https://ok.com"]
+    assert urls == [
+        "https://dup.com",
+        "https://ok.com",
+        "http://www.Arxiv.org/abs/2005.11401v5?utm_source=x#s",
+    ]
+
+
+def test_retrieve_keeps_published_date(monkeypatch):
+    monkeypatch.setattr(retriever.search_cache, "enabled", lambda: False)
+
+    class FakeClient:
+        def search(self, query, **kwargs):
+            return {
+                "results": [
+                    {
+                        "title": "A",
+                        "url": "https://date-probe.example/paper",
+                        "content": "x",
+                        "published_date": "2025-03-11",
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(retriever, "_client", FakeClient())
+    out = retriever.retrieve(["published date probe query"], max_results=1)
+    assert out[0]["published_date"] == "2025-03-11"
 
 
 def test_writer_no_sources():
     assert "No sources" in writer.write("q", [])
+
+
+def test_quote_matching():
+    passage = "The study reported a 12% gain in recall over the baseline."
+    assert quote_found("a 12% gain in recall", passage)
+    assert quote_found("reported a 12% gain ... the baseline", passage)
+    assert not quote_found("reported a 12% gain ... total collapse", passage)
+    assert not quote_found("a 40% gain in recall", passage)
+
+
+def test_writer_salvages_report_from_truncated_json():
+    raw = '{"report": "## Summary\\nThe result was 12%.", "claims": [{"claim": "x", "sou'
+    report, claims = writer._parse(raw)
+    assert report.startswith("## Summary")
+    assert claims == []
 
 
 def test_writer_parses_json(monkeypatch):

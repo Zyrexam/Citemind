@@ -16,6 +16,8 @@ dist/
 *.log
 data/
 qdrant_storage/
+evals/results/
+.cache/
 
 .DS_Store
 .idea/
@@ -29,6 +31,6 @@ apps/web/next-env.d.ts
 
 *.tsbuildinfo
 .github/
-
+.claude/
 .impeccable/
 .claude/settings.local.json

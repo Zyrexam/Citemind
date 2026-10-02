@@ -1,0 +1,38 @@
+{
+  "query": "What is reciprocal rank fusion and when is it used?",
+  "report": "## Summary\n\nReciprocal rank fusion combines several ranked lists into one by summing reciprocal ranks rather than comparing raw scores, and it is the standard way to merge lexical and dense retrieval [1].\n\n## Where it is used\n\nThe TREC Retrieval-Augmented Generation track evaluates systems that fuse multiple retrievers this way [3]. The same arXiv paper is also mirrored at version 3 of its listing [2].",
+  "citations": [
+    {
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "url": "https://arxiv.org/abs/2005.11401",
+      "content": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks. Rank fusion is the standard way to merge a lexical and a dense ranked list, because raw scores from the two are not on a comparable scale.",
+      "snippet": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks."
+    },
+    {
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks (v3 mirror)",
+      "url": "https://www.arxiv.org/abs/2005.11401v3?utm_source=twitter&utm_medium=social",
+      "content": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks. Rank fusion is the standard way to merge a lexical and a dense ranked list, because raw scores from the two are not on a comparable scale.",
+      "snippet": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks."
+    },
+    {
+      "title": "TREC Retrieval-Augmented Generation Track Overview",
+      "url": "https://trec.nist.gov/data/rag.html",
+      "content": "The TREC Retrieval-Augmented Generation track measures context precision and context recall separately. Systems that fuse a lexical and a dense retriever are a common configuration in the track.",
+      "snippet": "The TREC Retrieval-Augmented Generation track measures context precision and context recall separately."
+    }
+  ],
+  "_meta": {
+    "sources": 3,
+    "note": "fixture: [1] and [2] are the same page after canonicalisation (www + v3 + utm stripped)",
+    "writer": {
+      "per_source": null,
+      "claims": [
+        {
+          "claim": "Rank fusion merges a lexical and a dense ranked list.",
+          "source": 1,
+          "quote": "Rank fusion is the standard way to merge a lexical and a dense ranked list, because raw scores from the two are not on a comparable scale."
+        }
+      ]
+    }
+  }
+}

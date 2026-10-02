@@ -1,0 +1,32 @@
+{
+  "query": "What is the difference between context precision and context recall?",
+  "report": "## Summary\n\nContext precision and context recall measure different things, and the TREC Retrieval-Augmented Generation track scores them independently [1].\n\n## Definitions\n\nThe track description states that context recall asks what fraction of the relevant information required to answer the question was actually retrieved by the system [7].",
+  "citations": [
+    {
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "url": "https://arxiv.org/abs/2005.11401",
+      "content": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks. Evaluation of retrieval-augmented generation pipelines remains fragmented, with published systems reporting metrics that are rarely comparable across papers. Context precision measures whether the retrieved passages that are ranked highly are actually relevant to the question being asked.",
+      "snippet": "Combining parametric memory with non-parametric memory through retrieval has become a common approach to knowledge-intensive tasks."
+    },
+    {
+      "title": "TREC Retrieval-Augmented Generation Track Overview",
+      "url": "https://trec.nist.gov/data/rag.html",
+      "content": "The TREC Retrieval-Augmented Generation track measures context precision and context recall separately. Context recall asks what fraction of the relevant information required to answer the question was actually retrieved by the system. Context precision asks what fraction of the retrieved information was actually relevant.",
+      "snippet": "The TREC Retrieval-Augmented Generation track measures context precision and context recall separately."
+    }
+  ],
+  "_meta": {
+    "sources": 2,
+    "note": "fixture: cites [7] but only two sources exist",
+    "writer": {
+      "per_source": null,
+      "claims": [
+        {
+          "claim": "Context recall asks what fraction of the relevant information required to answer the question was actually retrieved.",
+          "source": 2,
+          "quote": "Context recall asks what fraction of the relevant information required to answer the question was actually retrieved by the system."
+        }
+      ]
+    }
+  }
+}

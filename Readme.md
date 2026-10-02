@@ -8,8 +8,8 @@ A multi-agent AI research assistant that plans, retrieves, and writes cited repo
 
 Takes a research question, breaks it into focused sub-queries, searches the web, and
 synthesises a structured report where every claim carries a numbered citation. Selecting a
-citation opens the source and **the passage the claim rests on**, so the answer can be
-checked rather than trusted.
+citation opens the source and the opening of its text, so the answer can be checked rather
+than trusted.
 
 Example input: "When does retrieval beat fine-tuning?"
 
@@ -17,19 +17,21 @@ Example input: "When does retrieval beat fine-tuning?"
 
 ```
 UI (Next.js)  -->  FastAPI Gateway  -->  Planner  -->  Retriever  -->  Writer
-                                                              |
-                                                        Guardrails
+                        |
+                  Guardrails wraps the whole run:
+                  the query is screened in, the report inspected out
 ```
 
-The evaluator agent and the RAGAS harness live under `agents/evaluator/` and `evals/`. The
-Qdrant vector store is wired into compose but is not yet in the live retrieval path.
+The RAGAS harness and the deterministic report verifiers live under `evals/`. `rag/` and
+`agents/evaluator/` are empty placeholders. Qdrant is wired into compose but nothing in the
+running API reads it -- retrieval is Tavily only.
 
 ## Services
 
 | Service | Port | Description |
 |---|---|---|
 | API Gateway | 8123 | FastAPI REST + SSE streaming |
-| Qdrant | 6333 | Vector database for hybrid RAG |
+| Qdrant | 6333 | Vector database; not yet in the retrieval path |
 | Web UI | 3000 | Next.js reader interface |
 
 Port 8123 rather than 8000 because Docker Desktop's own host proxy occupies 8000 on this
@@ -40,7 +42,7 @@ machine. The api container still listens on 8000 internally; only the host mappi
 
 - **Agents:** planner, retriever, and writer as plain modules over an OpenAI-compatible client
 - **LLM:** Groq (`openai/gpt-oss-120b`) via `LLM_BASE_URL`; any OpenAI-compatible endpoint works
-- **Retrieval:** Tavily search, `search_depth="advanced"`, 6 results per query, deduped by URL
+- **Retrieval:** Tavily search, `search_depth="advanced"`, 3 results per query, deduped by URL
 - **API:** FastAPI, Uvicorn, SSE
 - **UI:** Next.js 15 App Router, React 18, TailwindCSS 3.4, react-markdown + remark-gfm
 - **Evals:** RAGAS harness with local `all-MiniLM-L6-v2` embeddings
@@ -54,7 +56,7 @@ Styled as a researcher's manuscript rather than a chat app.
 
 - The question is set as the display title of the report it produces.
 - Claims carry superscript **figures**. Selecting one opens the source in a margin column,
-  draws a leader line from the figure into it, and shows the quoted passage.
+  draws a leader line from the figure into it, and shows the opening of the source text.
 - Sources are ranked beneath the question and cross-highlight with the figures.
 - **Download** produces a `.md` file containing the question, the report, and a Sources
   section with links. **Copy** does the same to the clipboard.
@@ -85,10 +87,10 @@ uvicorn apps.api.main:app --host 0.0.0.0 --port 8123
 
 # Web UI (from apps/web/)
 npm run dev
-
-# Qdrant
-docker run -p 6333:6333 qdrant/qdrant
 ```
+
+Qdrant is not needed to run the app. It is in `docker-compose.yml` for the hybrid-search
+work that has not landed yet, and no code reads it.
 
 ## Test
 
@@ -101,7 +103,7 @@ curl -X POST "http://localhost:8123/agent/run" \
   -H "Content-Type: application/json" \
   -d '{"query":"Compare RAG evaluation approaches"}'
 
-# Streaming query
+# Streaming query (stub -- echoes the question, runs no pipeline)
 curl "http://localhost:8123/agent/stream?query=test+query"
 
 # Unit tests
@@ -117,7 +119,7 @@ cd apps/web && npx tsc --noEmit && npm run build
 |---|---|---|
 | GET | /health | Service health check |
 | POST | /agent/run | Run a research query (sync) |
-| GET | /agent/stream | Stream a research query (SSE) |
+| GET | /agent/stream | Stub. Emits SSE frames, but runs no pipeline |
 
 ## Environment Variables
 
@@ -126,14 +128,27 @@ Copy `.env.example` to `.env` and fill in your keys:
 ```
 GROQ_API_KEY=
 TAVILY_API_KEY=
-OPENAI_API_KEY=
-HF_TOKEN=
-QDRANT_URL=http://localhost:6333
 LLM_MODEL=openai/gpt-oss-120b
 LLM_BASE_URL=https://api.groq.com/openai/v1
-API_PORT=8123
+API_PORT=8000
 LOG_LEVEL=info
 ```
+
+Retrieval depth, all optional -- the defaults in `core/config.py` are what the numbers in
+this README were measured at:
+
+```
+SUB_QUERIES=8
+RESULTS_PER_QUERY=3
+WRITER_INPUT_CHARS=12000
+WRITER_CONTEXT_CHARS=2500
+WRITER_MAX_TOKENS=3500
+```
+
+One variable is read straight from the environment rather than from settings:
+`CITEMIND_CACHE=0` turns off the on-disk search cache. It is on by default, with no expiry,
+so a long-lived cache will keep answering from whatever Tavily returned when each query was
+first run.
 
 The web app reads `NEXT_PUBLIC_API_URL`, defaulting to `http://localhost:8123`. Note that
 `NEXT_PUBLIC_*` values are inlined at **build** time, so changing it requires a rebuild.
@@ -145,21 +160,24 @@ citemind/
 ├── apps/
 │   ├── api/          # FastAPI gateway
 │   │   ├── main.py     # App entrypoint
-│   │   └── routes.py   # Endpoints
+│   │   ├── routes.py   # Endpoints
+│   │   └── Dockerfile
 │   └── web/          # Next.js UI
 │       ├── app/        # Pages, global styles, layout
-│       └── components/ # UI primitives
+│       ├── components/ # UI primitives
+│       ├── lib/        # cn() helper
+│       └── Dockerfile
 ├── core/
-│   └── config.py     # Pydantic settings
+│   ├── config.py       # Pydantic settings
+│   ├── search_cache.py # On-disk search cache, keyed by query
+│   └── urls.py         # URL canonicalisation, shared by retriever and verifier
 ├── agents/
 │   ├── planner/      # Sub-query generation
 │   ├── retriever/    # Tavily search and dedupe
-│   ├── writer/       # Report generation
-│   └── evaluator/    # Reserved
+│   └── writer/       # Report generation
 ├── guardrails/       # Input validation, PII scrubbing, output validation
+├── evals/            # RAGAS harness + deterministic report verifiers
 ├── tests/            # Unit and integration tests
-├── evals/            # RAGAS evaluation harness
-├── infra/            # Container definitions
 ├── docker-compose.yml
 ├── pyproject.toml
 └── .env
@@ -173,11 +191,14 @@ citemind/
 - [x] Retriever agent with Tavily
 - [x] Writer agent with citations
 - [x] Guardrails layer
-- [x] SSE streaming endpoint
+- [x] SSE endpoint (stub -- frames only, runs no pipeline)
 - [x] Docker + compose
 - [x] Next.js UI, redesigned as a cited-manuscript reader
 - [x] Downloadable report with sources
+- [x] Deterministic report verifiers -- structural checks and verbatim quote grounding
+- [x] Frozen search pool, so a settings A/B measures the setting and not the index
 - [ ] Run the eval harness and publish real scores
+- [ ] Serve claims and quotes from the API, so the grounding check runs on a live answer
 - [ ] Deploy api to Cloud Run and web to Vercel
 - [ ] Qdrant wired into the live retrieval path for hybrid search
 - [ ] Auth, rate limiting, observability

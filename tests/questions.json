@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "note": "Fixed question set. Do not edit between runs: comparability depends on it. key_facts is a checklist for human review only; no script grades against it.",
+  "questions": [
+    {
+      "id": "n1",
+      "kind": "normal",
+      "q": "When does retrieval-augmented generation beat fine-tuning, and when does it not?",
+      "key_facts": [
+        "RAG wins when knowledge changes faster than retraining",
+        "RAG wins when answers need source attribution",
+        "FT wins for stable domain behaviour and tone",
+        "FT wins when latency matters or offline is required",
+        "Hybrid often outperforms both"
+      ]
+    },
+    {
+      "id": "n2",
+      "kind": "normal",
+      "q": "How should a RAG system be evaluated in production?",
+      "key_facts": [
+        "Faithfulness or groundedness is a primary metric",
+        "Answer relevancy measures whether the answer addresses the question",
+        "Context precision and recall are separate concerns",
+        "Retrieval quality must be measured independently of generation"
+      ]
+    },
+    {
+      "id": "n3",
+      "kind": "normal",
+      "q": "What is hybrid search and what does it actually improve over pure vector search?",
+      "key_facts": [
+        "Hybrid combines lexical and dense retrieval",
+        "BM25 or similar catches exact terms and rare identifiers",
+        "Dense vectors handle paraphrase",
+        "Reciprocal rank fusion or score blending combines the two"
+      ]
+    },
+    {
+      "id": "n4",
+      "kind": "normal",
+      "q": "What causes hallucinations in retrieval-augmented generation?",
+      "key_facts": [
+        "Poor retrieval returns irrelevant context",
+        "The model over-relies on context it cannot verify",
+        "Context conflicts with parametric knowledge",
+        "Long noisy contexts degrade grounding"
+      ]
+    },
+    {
+      "id": "n5",
+      "kind": "normal",
+      "q": "What is reciprocal rank fusion and when is it used?",
+      "key_facts": [
+        "RRF combines rankings from several retrievers",
+        "It uses rank position rather than raw scores",
+        "No score normalisation between retrievers is needed",
+        "Used in hybrid search systems"
+      ]
+    },
+    {
+      "id": "n6",
+      "kind": "normal",
+      "q": "How are documents chunked for retrieval, and what chunk size works best?",
+      "key_facts": [
+        "Chunks are sized in tokens not characters",
+        "Too small loses context, too large dilutes embeddings",
+        "Overlapping chunks reduce boundary loss",
+        "Chunk size is task and model dependent"
+      ]
+    },
+    {
+      "id": "n7",
+      "kind": "normal",
+      "q": "What is the difference between context precision and context recall?",
+      "key_facts": [
+        "Precision is the share of retrieved context that is relevant",
+        "Recall is the share of relevant context that was retrieved",
+        "High recall low precision wastes context window",
+        "They trade off and should be measured separately"
+      ]
+    },
+    {
+      "id": "n8",
+      "kind": "normal",
+      "q": "How does query expansion or sub-query decomposition affect retrieval quality?",
+      "key_facts": [
+        "Decomposition targets one facet per sub-query",
+        "Multi-hop questions need sequential retrieval",
+        "Expansion increases recall and cost",
+        "Naive expansion can add noise"
+      ]
+    },
+    {
+      "id": "u1",
+      "kind": "unanswerable",
+      "q": "What is the private internal revenue of a specific unnamed enterprise using this system last quarter?",
+      "key_facts": [],
+      "expected": "Should say the sources are insufficient, not invent a figure."
+    },
+    {
+      "id": "u2",
+      "kind": "unanswerable",
+      "q": "What will the exact retrieval accuracy benchmark be for a model released next year?",
+      "key_facts": [],
+      "expected": "Should refuse to predict a specific number."
+    },
+    {
+      "id": "u3",
+      "kind": "unanswerable",
+      "q": "What is the source code of the retriever implementation used to build this report?",
+      "key_facts": [],
+      "expected": "Should state this cannot be found in web sources."
+    },
+    {
+      "id": "f1",
+      "kind": "false_premise",
+      "q": "Since retrieval-augmented generation was shown to eliminate hallucinations entirely, what is the residual error rate?",
+      "key_facts": [],
+      "expected": "Should reject the premise that RAG eliminates hallucination, then answer the real question."
+    },
+    {
+      "id": "f2",
+      "kind": "false_premise",
+      "q": "How much faster is BM25 than dense retrieval, given that BM25 uses transformers internally?",
+      "key_facts": [],
+      "expected": "Should correct the premise; BM25 is lexical, not transformer-based."
+    },
+    {
+      "id": "d1",
+      "kind": "disagreement",
+      "q": "Does adding a reranker to a RAG pipeline improve or degrade end-to-end accuracy?",
+      "key_facts": [],
+      "expected": "Sources may conflict. Report both positions rather than picking one."
+    },
+    {
+      "id": "d2",
+      "kind": "disagreement",
+      "q": "Is a larger context window a substitute for better retrieval?",
+      "key_facts": [],
+      "expected": "Sources may conflict. Report both positions rather than picking one."
+    }
+  ]
+}

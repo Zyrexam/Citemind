@@ -1,0 +1,49 @@
+{
+  "query": "When does retrieval beat fine-tuning?",
+  "report": "## Summary\n\nThe retrieval pipeline reached 91% answer accuracy against 79% for the fine-tuned baseline [1].\n\n## Where the two diverge\n\nFine-tuning degraded quickly when the underlying facts changed, while retrieval picked up the new facts without retraining [2].",
+  "citations": [
+    {
+      "title": "Retrieval versus fine-tuning on domain question sets",
+      "url": "https://example.org/retrieval-vs-finetuning",
+      "snippet": "In our evaluation the retrieval pipeline reached 91% answer accuracy",
+      "content": "In our evaluation the retrieval pipeline reached 91% answer accuracy while the fine-tuned baseline reached 79% on the same question set, a 12 point gap that held across every domain we tested.",
+      "query": "retrieval versus fine-tuning accuracy"
+    },
+    {
+      "title": "Why tuned models go stale",
+      "url": "https://example.org/stale-facts",
+      "snippet": "Fine-tuning helped most when the domain was narrow and stable",
+      "content": "Fine-tuning helped most when the domain was narrow and stable, and it degraded quickly when the underlying facts changed, whereas retrieval picked up the new facts without any retraining.",
+      "query": "fine-tuning stale knowledge degradation"
+    }
+  ],
+  "_meta": {
+    "sub_queries": 2,
+    "sources": 2,
+    "report_chars": 318,
+    "writer": {
+      "budget": 12000,
+      "per_source": 400,
+      "cut": false,
+      "claims": [
+        {
+          "claim": "Retrieval reached 91% answer accuracy against the fine-tuned baseline's 79%",
+          "source": 1,
+          "quote": "the retrieval pipeline reached 91% answer accuracy while the fine-tuned baseline reached 79%"
+        },
+        {
+          "claim": "Fine-tuning degraded when the facts changed; retrieval did not",
+          "source": 2,
+          "quote": "it degraded quickly when the underlying facts changed, whereas retrieval picked up the new facts"
+        }
+      ],
+      "tokens": 1840
+    },
+    "settings": {
+      "sub_queries": 8,
+      "results_per_query": 3,
+      "writer_context_chars": 2500,
+      "writer_max_tokens": 3500
+    }
+  }
+}
