@@ -1,10 +1,6 @@
-"""Structural checks on a finished report. Deterministic; no LLM calls.
+"""Structural checks on a finished report. No LLM calls.
 
     python -m evals.verify_report path/to/report.json
-
-Checks: every [n] resolves to a real source, no source goes uncited, no two
-sources are the same page after canonicalisation, and every sentence carrying a
-number or a name carries a citation.
 """
 
 import sys
@@ -20,8 +16,9 @@ from evals.checks import (
     split_sentences,
 )
 
-# Failures that indicate a claim the sources do not support. Everything else is
-# a reading prompt, not a proven error.
+# failures that indicate a claim the sources do not support. The rest are
+# failures that mean a claim the sources do not support. The rest are
+# reading prompts, not proven errors.
 HARD = {"citation-out-of-range", "uncited-number", "duplicate-source"}
 
 HARD_BLURB = {

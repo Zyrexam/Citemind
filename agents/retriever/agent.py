@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 DEPTH = "advanced"
 
-
 class Source(TypedDict):
     title: str
     url: str
@@ -40,11 +39,7 @@ def _get_client():
 
 
 def _search(client, q: str, max_results: int) -> list[dict]:
-    """Results for one query, from the cache when it holds enough of them.
-
-    The cache answers only if it can serve the full requested count; a partial
-    hit would silently change which sources a run sees.
-    """
+    """Results for one query. A partial hit would change the source set."""
     hit = search_cache.get(q, max_results, DEPTH)
     if hit is not None:
         logger.info("cache hit for: %s (%d results)", q[:60], len(hit))
@@ -57,9 +52,7 @@ def _search(client, q: str, max_results: int) -> list[dict]:
         include_answer=False,
     )
     fresh = resp.get("results", [])
-    # Stored before dedupe: the cache is the raw pool, and the canonical-URL
-    # dedupe below is a retrieval-time concern that a wider run may resolve
-    # differently.
+    # stored before dedupe: the cache is the raw pool
     search_cache.store(q, DEPTH, fresh)
     return search_cache.get(q, max_results, DEPTH) or fresh[:max_results]
 
@@ -92,4 +85,7 @@ def retrieve(queries: list[str], max_results: int = 6) -> list[Source]:
                 }
             )
         logger.info("retrieved %d results for: %s", len(raw), q[:60])
+
+    # newest first, undated last
+    results.sort(key=lambda s: s["published_date"] or "", reverse=True)
     return results

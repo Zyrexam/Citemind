@@ -48,6 +48,14 @@ machine. The api container still listens on 8000 internally; only the host mappi
 - **Evals:** RAGAS harness with local `all-MiniLM-L6-v2` embeddings
 - **Infra:** Docker, Docker Compose
 
+## Testing
+
+The suite is deliberately small. It covers the API contract, the report
+verifiers, and the four pieces that have each been a real bug -- claims that
+never parsed, arXiv ids that would not collapse, a cache that could hand a run
+a different evidence pool, and a name check that missed the commonest case.
+Run it with `pytest tests/ -v`.
+
 No CI/CD. The workflow that existed was broken YAML and has been removed.
 
 ## The interface
@@ -103,9 +111,6 @@ curl -X POST "http://localhost:8123/agent/run" \
   -H "Content-Type: application/json" \
   -d '{"query":"Compare RAG evaluation approaches"}'
 
-# Streaming query (stub -- echoes the question, runs no pipeline)
-curl "http://localhost:8123/agent/stream?query=test+query"
-
 # Unit tests
 pytest tests/ -v
 
@@ -118,8 +123,7 @@ cd apps/web && npx tsc --noEmit && npm run build
 | Method | Path | Description |
 |---|---|---|
 | GET | /health | Service health check |
-| POST | /agent/run | Run a research query (sync) |
-| GET | /agent/stream | Stub. Emits SSE frames, but runs no pipeline |
+| POST | /agent/run | Run a research query (sync), with claims and citations |
 
 ## Environment Variables
 
@@ -182,26 +186,6 @@ citemind/
 ├── pyproject.toml
 └── .env
 ```
-
-## Roadmap
-
-- [x] Scaffolding and FastAPI gateway
-- [x] Groq LLM wiring
-- [x] Planner agent
-- [x] Retriever agent with Tavily
-- [x] Writer agent with citations
-- [x] Guardrails layer
-- [x] SSE endpoint (stub -- frames only, runs no pipeline)
-- [x] Docker + compose
-- [x] Next.js UI, redesigned as a cited-manuscript reader
-- [x] Downloadable report with sources
-- [x] Deterministic report verifiers -- structural checks and verbatim quote grounding
-- [x] Frozen search pool, so a settings A/B measures the setting and not the index
-- [ ] Run the eval harness and publish real scores
-- [ ] Serve claims and quotes from the API, so the grounding check runs on a live answer
-- [ ] Deploy api to Cloud Run and web to Vercel
-- [ ] Qdrant wired into the live retrieval path for hybrid search
-- [ ] Auth, rate limiting, observability
 
 ## Why This Project
 

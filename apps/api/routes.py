@@ -1,10 +1,8 @@
-import asyncio
-import json
 import logging
 
 from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-from sse_starlette.sse import EventSourceResponse
 
 from agents.planner.agent import plan
 from agents.retriever.agent import retrieve
@@ -23,14 +21,20 @@ class AgentRequest(BaseModel):
 class Citation(BaseModel):
     title: str
     url: str | None = None
-    # the passage the claim rests on, so the reader can check it
     snippet: str | None = None
+
+
+class Claim(BaseModel):
+    claim: str
+    source: int
+    quote: str
 
 
 class AgentResponse(BaseModel):
     query: str
     report: str
     citations: list[Citation] = []
+    claims: list[Claim] = []
     status: str = "ok"
 
 
@@ -42,14 +46,17 @@ async def run_agent(req: AgentRequest) -> AgentResponse:
 
     clean_query = scrub_pii(req.query)
 
-    sub_queries = plan(clean_query)[: settings.sub_queries]
+    # these all block, and the writer sleeps 65s between retries
+    sub_queries = await run_in_threadpool(plan, clean_query)
     logger.info("planner produced %d queries", len(sub_queries))
 
-    sources = retrieve(sub_queries, max_results=settings.results_per_query)
+    sources = await run_in_threadpool(
+        retrieve, sub_queries, max_results=settings.results_per_query)
     logger.info("retriever returned %d sources", len(sources))
 
+    trace: dict = {}
     try:
-        report = write(clean_query, sources)
+        report = await run_in_threadpool(write, clean_query, sources, trace)
     except RuntimeError as e:
         logger.error("writer failed: %s", e)
         raise HTTPException(status_code=503, detail=str(e)) from e
@@ -57,7 +64,7 @@ async def run_agent(req: AgentRequest) -> AgentResponse:
     ok, err = validate_output(report)
     if not ok:
         logger.warning("output validation failed: %s", err)
-        report = "(Report generation failed validation.)"
+        raise HTTPException(status_code=502, detail=err)
 
     citations = [
         Citation(
@@ -67,21 +74,11 @@ async def run_agent(req: AgentRequest) -> AgentResponse:
         )
         for s in sources
     ]
+    claims = [Claim(**c) for c in trace.get("claims", [])]
 
     return AgentResponse(
         query=clean_query,
         report=report,
         citations=citations,
+        claims=claims,
     )
-
-
-@router.get("/agent/stream")
-async def stream_agent(query: str):
-    async def event_gen():
-        tokens = f"(stub) Streaming answer for: {query}".split()
-        for tok in tokens:
-            yield {"event": "token", "data": json.dumps({"token": tok + " "})}
-            await asyncio.sleep(0.05)
-        yield {"event": "done", "data": json.dumps({"status": "ok"})}
-
-    return EventSourceResponse(event_gen())

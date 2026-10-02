@@ -1,23 +1,12 @@
-"""Re-check every quote already stored in evals/results against the current rules.
+"""Re-check stored quotes against the current rules. No LLM calls.
 
     python -m evals.quote_audit
-
-Answers one question: how many quotes that passed an earlier run would fail
-today. Anything failing here is not a new defect in the report -- it is a quote
-an older, looser checker called verbatim.
 """
 
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from evals.verify_grounding import (  # noqa: E402
-    MIN_QUOTE_WORDS,
-    quote_defects,
-    quote_found,
-)
+from evals.verify_grounding import MIN_QUOTE_WORDS, quote_defects, quote_found
 
 RESULTS = Path(__file__).resolve().parent / "results"
 
@@ -86,8 +75,7 @@ def main() -> int:
 
     a = audit(paths)
     total = a["total"]
-    # quotes absent from their source were already failing before the new rules
-    # existed. Conflating the two overstates what the new check caught.
+    # absent quotes were already failing before the new rules; keep them apart
     pre_existing = len(a["reasons"].get("quote-not-found", []))
     newly = {k: v for k, v in a["reasons"].items() if k != "quote-not-found"}
 

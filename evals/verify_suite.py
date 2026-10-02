@@ -1,29 +1,24 @@
-"""Run the fixed question set through the pipeline and verify each result.
+"""Run the question set through the pipeline and verify each result.
 
     python -m evals.verify_suite --limit 3
 
-Runs in-process so the full fetched page text is captured -- that is what lets
-the grounding check run at all. Grades nothing; prints structural and grounding
-numbers and leaves answer quality to a human.
+In-process so the full page text is captured. Grades nothing.
 """
 
 import argparse
 import contextlib
 import io
 import json
-import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from agents.planner.agent import plan  # noqa: E402
-from agents.retriever.agent import retrieve  # noqa: E402
-from agents.writer.agent import write  # noqa: E402
-from core.config import settings  # noqa: E402
-from evals import verify_grounding, verify_report  # noqa: E402
-from evals.checks import CITE_RE, looks_like_refusal  # noqa: E402
-from guardrails import scrub_pii, validate_input  # noqa: E402
+from agents.planner.agent import plan
+from agents.retriever.agent import retrieve
+from agents.writer.agent import write
+from core.config import settings
+from evals import verify_grounding, verify_report
+from evals.checks import CITE_RE, looks_like_refusal
+from guardrails import scrub_pii, validate_input
 
 RESULTS = Path(__file__).resolve().parent / "results"
 TESTS = Path(__file__).resolve().parents[1] / "tests"
@@ -32,7 +27,7 @@ SETS = {"eval": "questions.json", "heldout": "heldout.json"}
 
 def run_one(q: str) -> dict:
     clean = scrub_pii(q)
-    sub = plan(clean)[: settings.sub_queries]
+    sub = plan(clean)
     sources = retrieve(sub, max_results=settings.results_per_query)
     trace: dict = {}
     report = write(clean, sources, trace=trace)
@@ -103,9 +98,7 @@ def main() -> int:
             try:
                 data = run_one(item["q"])
             except Exception as e:
-                # One rate-limited question used to abort the whole suite and
-                # lose every question after it, which is the most expensive
-                # possible outcome for a run that cost minutes to reach.
+                # one failure must not abort the rest of the suite
                 print(f"  {item['id']} FAILED after {time.time() - t0:.0f}s: "
                       f"{type(e).__name__}: {str(e)[:120]}", flush=True)
                 rows.append({
@@ -160,9 +153,7 @@ def main() -> int:
     refused = [r["id"] for r in rows if r["refuse"] == "REFUSED"]
     cut = [r["id"] for r in rows if r["cut"] == "CUT"]
     errored = [r["id"] for r in rows if r["struct"] == "ERROR"]
-    # A run that emitted no claims has nothing to grade. Scoring it as a quote
-    # failure reads as "the quotes are bad" when the truth is "there were none",
-    # which is how a dead measurement gets mistaken for a bad result.
+    # a run with no claims has nothing to grade; do not score it as a failure
     silent = [r["id"] for r in rows if r["claims"] == 0]
     graded = len(rows) - len(silent)
 

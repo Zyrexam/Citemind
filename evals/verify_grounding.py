@@ -1,11 +1,6 @@
-"""Verify each cited claim is backed by a quote that occurs in its passage.
+"""Verify each claim is backed by a quote that occurs in its passage. No judge.
 
     python -m evals.verify_grounding path/to/report.json
-
-Containment alone is not enough -- a quote that stops mid-word also occurs in its
-source. So a quote must be long enough to be evidence and end on a word boundary.
-
-Deterministic: no judge, no scoring.
 """
 
 import re
@@ -13,7 +8,7 @@ import sys
 
 from evals.checks import load_report, source_list
 
-# typography the model reproduces inconsistently, and elision it uses for long quotes
+# typography the model gets wrong, plus the elision it uses for long quotes
 _FOLD = str.maketrans({
     "‐": "-", "‑": "-", "‒": "-", "–": "-",
     "—": "-", "―": "-", "−": "-",
@@ -23,7 +18,7 @@ _FOLD = str.maketrans({
 _WS = re.compile(r"\s+")
 _PUNCT = re.compile(r"[^\w\s]")
 
-# below this a match is not evidence: "measured separately" is in every RAG paper
+# under this a match proves nothing: "measured separately" is in every RAG paper
 MIN_QUOTE_WORDS = 8
 
 _WORD = re.compile(r"\w")
@@ -36,12 +31,7 @@ def normalise(text: str) -> str:
 
 
 def quote_found(quote: str, haystack: str) -> bool:
-    """True if the quote occurs in the passage.
-
-    An elided quote passes only if every fragment is present, so the model
-    cannot bridge two unrelated passages. Split before normalising, which
-    strips the dots marking the elision.
-    """
+    """True if the quote occurs in the passage. Split before normalising."""
     hay = normalise(haystack)
     if normalise(quote) in hay:
         return True
@@ -54,11 +44,7 @@ def quote_found(quote: str, haystack: str) -> bool:
 
 
 def _ends_at_word_boundary(needle: str, hay: str) -> bool:
-    """True if some occurrence of `needle` ends on a word boundary.
-
-    Cut off only if *every* occurrence is: the phrase may appear complete once
-    and truncated elsewhere.
-    """
+    """True if some occurrence of `needle` ends on a word boundary."""
     start, width = 0, len(needle)
     while True:
         i = hay.find(needle, start)
@@ -71,11 +57,7 @@ def _ends_at_word_boundary(needle: str, hay: str) -> bool:
 
 
 def quote_defects(quote: str, haystack: str) -> list[str]:
-    """Ways a quote can occur in the passage and still be worthless.
-
-    Only meaningful once `quote_found` passes. An elided quote ends with its last
-    fragment, so that carries the boundary; the word floor covers the whole quote.
-    """
+    """Ways a quote can occur and still be worthless. Needs quote_found to pass."""
     defects = []
 
     words = len(normalise(quote).split())

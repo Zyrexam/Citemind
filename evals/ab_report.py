@@ -2,10 +2,8 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from evals.checks import looks_like_refusal  # noqa: E402
-from evals.verify_grounding import quote_defects, quote_found  # noqa: E402
+from evals.checks import looks_like_refusal
+from evals.verify_grounding import quote_defects, quote_found
 
 RESULTS = Path(__file__).resolve().parent / "results"
 
@@ -18,9 +16,11 @@ def arm(tag: str) -> dict:
     slices: list[int] = []
     chars: list[int] = []
     urls: list[set[str]] = []
+    loaded: dict[str, dict] = {}
 
     for p in paths:
         data = json.loads(p.read_text(encoding="utf-8"))
+        loaded[p.stem.split("_", 1)[1]] = data
         srcs = data.get("citations") or []
         w = (data.get("_meta") or {}).get("writer") or {}
         cl = w.get("claims") or []
@@ -58,6 +58,7 @@ def arm(tag: str) -> dict:
         "avg_sources": sum(sources) / max(1, len(sources)),
         "avg_slice": sum(slices) / max(1, len(slices)),
         "avg_chars": sum(chars) / max(1, len(chars)),
+        "loaded": loaded,
     }
 
 
@@ -70,11 +71,8 @@ def main() -> int:
         print("one of the arms has no stored reports; nothing to compare")
         return 1
 
-    # pool overlap, matched by question id rather than by position
-    amap = {p.stem.split("_", 1)[1]: json.loads(p.read_text(encoding="utf-8"))
-            for p in sorted(RESULTS.glob(f"{a['tag']}_*.json"))}
-    bmap = {p.stem.split("_", 1)[1]: json.loads(p.read_text(encoding="utf-8"))
-            for p in sorted(RESULTS.glob(f"{b['tag']}_*.json"))}
+    # match on question id, not position
+    amap, bmap = a["loaded"], b["loaded"]
     shared = sorted(set(amap) & set(bmap))
     ratios = []
     for k in shared:

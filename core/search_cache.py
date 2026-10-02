@@ -1,10 +1,4 @@
-"""On-disk cache for search results, keyed by query.
-
-A settings A/B is only meaningful if both arms read the same evidence, so a hit
-is served only when it holds at least N results, and a fresh fetch merges behind
-what is stored rather than replacing it. That keeps the list prefix-stable:
-slicing the first 3 gives what a dedicated 3-result fetch would have returned.
-"""
+"""On-disk cache for search results, keyed by query."""
 
 import hashlib
 import json
@@ -24,10 +18,7 @@ def enabled() -> bool:
 
 
 def _key(query: str, depth: str) -> str:
-    """Same question, spacing and depth -> same key.
-
-    The planner rephrases the same query across runs, so hash normalised text.
-    """
+    """Same question, spacing and depth -> same key."""
     norm = _WS.sub(" ", query.strip().lower())
     h = hashlib.sha256(f"{depth}\x00{norm}".encode()).hexdigest()[:20]
     return h
@@ -38,10 +29,9 @@ def _path(query: str, depth: str) -> Path:
 
 
 def get(query: str, max_results: int, depth: str) -> list[dict] | None:
-    """Cached results for this query, or None if it cannot satisfy the request.
+    """Cached results, or None if the entry cannot serve the request.
 
-    max_results=0 means "whatever is stored", for callers that cache a list
-    rather than a ranked result page.
+    max_results=0 means "whatever is stored".
     """
     if not enabled():
         return None
@@ -61,11 +51,6 @@ def get(query: str, max_results: int, depth: str) -> list[dict] | None:
 
 
 def store(query: str, depth: str, fresh: list[dict]) -> list[dict]:
-    """Merge a fetch into the cache and return the merged pool.
-
-    Existing entries keep their positions so a later narrow slice still
-    reproduces what a narrow fetch would have returned.
-    """
     path = _path(query, depth)
     pooled: list[dict] = []
     seen: set[str] = set()
@@ -77,8 +62,7 @@ def store(query: str, depth: str, fresh: list[dict]) -> list[dict]:
             pooled = []
 
     for r in pooled + fresh:
-        # Tavily entries are keyed by url, planner entries by query. Dedupe on
-        # url alone would collapse a replayed plan to a single sub-query.
+        # url for tavily rows, query for planner rows
         key = r.get("url") or r.get("query") or json.dumps(
             r, sort_keys=True, ensure_ascii=False)
         if key in seen:
@@ -97,7 +81,6 @@ def store(query: str, depth: str, fresh: list[dict]) -> list[dict]:
 
 
 def stats() -> tuple[int, int]:
-    """(cached queries, cached results) across every depth."""
     queries = results = 0
     if not ROOT.exists():
         return 0, 0

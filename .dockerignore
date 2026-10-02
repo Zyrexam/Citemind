@@ -1,9 +1,13 @@
 .venv
 __pycache__
 *.pyc
+
 .git
 .github
+
 node_modules
+
 data
 qdrant_storage
+
 .env

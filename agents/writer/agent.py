@@ -15,9 +15,7 @@ client = OpenAI(
     api_key=settings.groq_api_key,
 )
 
-# Groq enforces input+output per minute, not per request. A full run costs the
-# planner ~1k tokens and the writer ~6.8k, nearly the whole 8000 allowance, so the
-# window needs a clear minute to refill before a retry stands any chance.
+# groq caps input+output per minute, so back off a full minute
 RATE_LIMIT_PAUSE = 65
 
 WRITER_PROMPT = """You are a research report writer.
@@ -70,11 +68,9 @@ CUT_NOTE = (
     "so this report draws on less evidence than was retrieved._"
 )
 
-# The model sometimes runs out of output tokens mid-JSON. The report is written
-# first, so it is usually intact; a claim whose quote was never closed is dropped
-# rather than guessed at.
+# report is written first so it survives a truncated response; a claim whose
+# quote never closed is dropped
 _STR = r'((?:[^"\\]|\\.)*)'
-_REPORT_RE = re.compile(r'"report"\s*:\s*"' + _STR + r'"')
 _OBJECT_RE = re.compile(r"\{[^{}]*\}")
 
 
@@ -108,10 +104,10 @@ def _claims(text: str) -> list[dict]:
 
 
 def _build_source_block(sources: list[Source], budget: int) -> tuple[str, int]:
-    """Render the sources into a character budget, headers included.
+    """Render the sources into a character budget.
 
-    Returns the block and the per-source allowance used, which the quote check
-    needs: it must verify against the slice the writer saw, not the full page.
+    Returns the per-source allowance too; the quote check verifies against that
+    slice, not the full page.
     """
     headers = [f"[{i}] {s['title']} -- {s['url']}" for i, s in enumerate(sources, 1)]
     room = max(0, budget - sum(len(h) + 2 for h in headers))
@@ -144,8 +140,8 @@ def _parse(raw: str) -> tuple[str, list[dict]]:
     except json.JSONDecodeError:
         pass
 
-    m = _REPORT_RE.search(text)
-    return (_unescape(m.group(1)), claims) if m else ("", claims)
+    found = _field(text, "report")
+    return _unescape(found) if found is not None else "", claims
 
 
 def write(query: str, sources: list[Source], trace: dict | None = None) -> str:
@@ -202,9 +198,6 @@ def write(query: str, sources: list[Source], trace: dict | None = None) -> str:
         logger.warning("writer returned no report, retrying")
         budget = int(budget * 0.8)
 
-    # Falling through here used to return the literal string "No report
-    # generated.", or the raw JSON, as though either were a report. A caller
-    # cannot tell a failed request from an answer, so it raises instead.
     if rate_limited:
         raise RuntimeError(
             f"writer: rate limited on all 3 attempts, even at {budget} chars"

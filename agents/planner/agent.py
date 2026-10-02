@@ -13,10 +13,7 @@ client = OpenAI(
     api_key=settings.groq_api_key,
 )
 
-# The planner shares the search cache. It is an LLM, so it rephrases the same
-# question differently on every run; without this the sub-query set drifts and a
-# settings A/B ends up comparing two different searches rather than two
-# different settings.
+# shares the search cache; the planner rephrases between runs
 PLAN_DEPTH = "plan"
 
 PLANNER_PROMPT = """You are a research planning assistant.
@@ -35,7 +32,6 @@ Example output:
 
 
 def plan(query: str) -> list[str]:
-    """Break a research question into focused search queries."""
     cached = search_cache.get(query, 0, PLAN_DEPTH)
     if cached:
         queries = [r.get("query", "") for r in cached]
