@@ -23,7 +23,7 @@ evals/results/
 .idea/
 .vscode/
 
-M10_REMAINING.md
+DEPLOYMENT.md
 Product.md
 
 .playwright-mcp/apps/web/tsconfig.tsbuildinfo

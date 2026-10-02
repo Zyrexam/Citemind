@@ -15,9 +15,10 @@ class Settings(BaseSettings):
 
     # retrieval depth. override to run an A/B against the same question set.
     sub_queries: int = 8
-    # unsettled. the old "3 beats 6" was never measured - the writer was
-    # emitting no claims. what is real: a fixed 12000-char budget means more
-    # results/query gives thinner slices
+    # measured on the cached pool, n1+n2, 100% pool overlap:
+    # 3/query -> 19.0 sources at 542 chars each, 25 claims, 92% usable quotes
+    # 5/query -> 30.5 at 360 chars, 11 claims, one refusal, one token-cap cut
+    # the writer budget is fixed, so more results/query just thins each source
     results_per_query: int = 3
 
     # groq caps input+output at 8k tokens/min. 12000 chars + 3500 out is about
